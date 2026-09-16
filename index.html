@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ranking API Tester - Simple</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      max-width: 960px;
+      margin: 20px auto;
+      padding: 0 14px 40px;
+      line-height: 1.6;
+      color: #222;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      line-height: 1.3;
+    }
+
+    .lead {
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      margin-top: 4px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .secondary {
+      background: #fff;
+      border: 1px solid #aaa;
+    }
+
+    .status,
+    pre {
+      margin-top: 12px;
+    }
+
+    pre {
+      padding: 12px;
+      background: #f4f4f4;
+      border-radius: 6px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .api-spec {
+      margin-top: 42px;
+    }
+
+    .good {
+      color: #087a24;
+      font-weight: 600;
+    }
+
+    .bad {
+      color: #b00020;
+      font-weight: 600;
+    }
+
+    .note {
+      padding: 10px 12px;
+      background: #f6f6f6;
+      border-left: 4px solid #999;
+      margin: 12px 0;
+    }
+
+    .small {
+      font-size: 0.92rem;
+      color: #555;
+    }
+
+    @media (max-width: 760px) {
+      .grid,
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ranking API Tester - Simple</h1>
+    <p class="lead">
+      Google Apps Script の省略版ランキングAPI（playerId / runId なし）をブラウザから確認するための単一HTMLです。
+    </p>
+
+    <section class="grid">
+      <div class="card">
+        <h2>POST - スコア送信</h2>
+
+        <form id="postForm">
+          <label for="postUrl">WebアプリURL</label>
+          <input
+            id="postUrl"
+            type="url"
+            placeholder="https://script.google.com/macros/s/.../exec"
+            required
+          />
+
+          <div class="row">
+            <div>
+              <label for="name">name</label>
+              <input id="name" type="text" value="TEST" maxlength="20" required />
+            </div>
+
+            <div>
+              <label for="score">score</label>
+              <input
+                id="score"
+                type="number"
+                value="1234"
+                min="0"
+                max="1000000"
+                step="1"
+                required
+              />
+            </div>
+
+            <div>
+              <label for="time">time</label>
+              <input
+                id="time"
+                type="number"
+                value="30.5"
+                min="0"
+                max="60"
+                step="any"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button type="submit">POST送信</button>
+            <button id="fillSampleButton" class="secondary" type="button">サンプル値に戻す</button>
+          </div>
+        </form>
+
+        <div class="note small">
+          <code>createdAt</code> と <code>status</code> はクライアントから送りません。
+          GAS側で <code>createdAt = new Date()</code>、<code>status = "active"</code> として保存する想定です。
+        </div>
+
+        <div id="postStatus" class="status" aria-live="polite"></div>
+        <pre id="postResult">POST結果がここに表示されます。</pre>
+      </div>
+
+      <div class="card">
+        <h2>GET - ランキング取得</h2>
+
+        <label for="getUrl">WebアプリURL</label>
+        <input id="getUrl" type="url" placeholder="POST側のURLを自動共有します" />
+
+        <div class="actions">
+          <button id="getButton" type="button">ランキング取得</button>
+          <button id="copyUrlButton" class="secondary" type="button">POST側URLを反映</button>
+        </div>
+
+        <div id="getStatus" class="status" aria-live="polite"></div>
+        <pre id="getResult">GET結果がここに表示されます。</pre>
+      </div>
+
+      <div class="card full">
+        <h2>ランキング表示</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name</th>
+              <th>Score</th>
+              <th>Time (分)</th>
+            </tr>
+          </thead>
+          <tbody id="rankingBody">
+            <tr><td colspan="4">まだ取得していません。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="api-spec">
+      <details open>
+        <summary><strong>現在の省略版API仕様</strong></summary>
+
+        <h3>システム構成</h3>
+        <pre>ゲーム / テストHTML
+        ↓ HTTP POST / GET
+Google Apps Script
+        ↓
+Google Sheets</pre>
+
+        <h3>実装方針</h3>
+        <ul>
+          <li>Google Apps Script の同一WebアプリURLに対して、POSTでスコア登録、GETでランキング取得を行う。</li>
+          <li>保存先シート名は <code>game_scores_sheet</code>。</li>
+          <li>シートが存在しない場合はGAS側で自動作成する。</li>
+          <li>ヘッダーもGAS側で自動作成する。</li>
+          <li>現省略版では <code>playerId</code> / <code>runId</code> は使用しない。</li>
+          <li>認証・プレイヤー単位の重複制御・自己ベスト管理は行わない。</li>
+        </ul>
+
+        <h3>POST - スコア登録</h3>
+        <p>送信JSON:</p>
+        <pre>{
+  "name": "PLAYER",
+  "score": 1234,
+  "time": 30.5
+}</pre>
+
+        <table>
+          <thead>
+            <tr><th>項目</th><th>型</th><th>現在の仕様</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>name</code></td>
+              <td>string</td>
+              <td>空文字不可、20文字以内。制御文字不可。先頭が <code>= + - @</code> の名前は不可。</td>
+            </tr>
+            <tr>
+              <td><code>score</code></td>
+              <td>number</td>
+              <td>0以上。現在のサンプル上限は 1,000,000。保存時に整数化。</td>
+            </tr>
+            <tr>
+              <td><code>time</code></td>
+              <td>number</td>
+              <td>ゲーム内所要時間（分）。0より大きく60以下。小数を許可し、小さいほど高順位。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note">
+          <code>time</code> は実時間の「秒」ではなく、ゲーム内で経過した「分」を数値で送ります。
+          例: <code>30.5</code> はゲーム内時間で30.5分です。現在は整数になる想定ですが、将来のフレーム単位計測に備えて小数を許可します。
+        </div>
+
+        <p>成功レスポンス:</p>
+        <pre>{
+  "success": true,
+  "message": "score saved"
+}</pre>
+
+        <p>失敗レスポンス例:</p>
+        <pre>{
+  "success": false,
+  "message": "invalid score"
+}</pre>
+
+        <h3>Google Sheets 保存仕様</h3>
+        <p>シート名: <code>game_scores_sheet</code></p>
+
+        <table>
+          <thead>
+            <tr><th>列</th><th>項目</th><th>内容</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>A</td><td><code>name</code></td><td>ランキング表示用の名前</td></tr>
+            <tr><td>B</td><td><code>score</code></td><td>整数化したスコア</td></tr>
+            <tr><td>C</td><td><code>time</code></td><td>ゲーム内所要時間（分）。小数可。</td></tr>
+            <tr><td>D</td><td><code>createdAt</code></td><td>GAS側で <code>new Date()</code> を保存</td></tr>
+            <tr><td>E</td><td><code>status</code></td><td><code>active</code> / <code>hidden</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="note">
+          <code>status</code> は新規投稿時に自動で <code>active</code>。
+          スタッフがGoogle Sheets上のドロップダウンから <code>hidden</code> に変更すると、ランキング対象から除外する想定です。
+        </div>
+
+        <h3>シート自動初期化</h3>
+        <ul>
+          <li><code>game_scores_sheet</code> がなければ自動作成。</li>
+          <li>空シートなら <code>name / score / time / createdAt / status</code> のヘッダーを自動作成。</li>
+          <li>1行目を固定。</li>
+          <li><code>createdAt</code> 列を <code>yyyy/MM/dd HH:mm:ss</code> 表示に設定。</li>
+          <li><code>status</code> 列に <code>active / hidden</code> のドロップダウンを設定。</li>
+          <li>Spreadsheetのタイムゾーンは <code>Asia/Tokyo</code> を使用。</li>
+        </ul>
+
+        <h3>GET - ランキング取得</h3>
+        <ol>
+          <li><code>status === "active"</code> の記録だけを対象にする。</li>
+          <li><code>score</code> の高い順に並べる。</li>
+          <li>同スコアなら <code>time</code> の小さい順に並べる。</li>
+          <li>scoreとtimeも同じなら <code>createdAt</code> の早い順に並べる。</li>
+          <li>上位10件を返す。</li>
+        </ol>
+
+        <p>GETレスポンス例:</p>
+        <pre>[
+  {
+    "rank": 1,
+    "name": "AAA",
+    "score": 5000,
+    "time": 38.21
+  }
+]</pre>
+
+        <h3>順位決定ルール</h3>
+        <pre>1. score     DESC
+2. time      ASC
+3. createdAt ASC</pre>
+
+        <h3>現省略版で未実装</h3>
+        <ul>
+          <li>playerId</li>
+          <li>runId</li>
+          <li>1プレイヤー1枠のランキング</li>
+          <li>自己ベスト判定</li>
+          <li>二重送信検出</li>
+          <li>ユーザー認証</li>
+          <li>ブラックリストによる名前自動拒否</li>
+          <li>レート制限</li>
+        </ul>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    const postForm = document.getElementById("postForm");
+    const postUrl = document.getElementById("postUrl");
+    const getUrl = document.getElementById("getUrl");
+    const postStatus = document.getElementById("postStatus");
+    const getStatus = document.getElementById("getStatus");
+    const postResult = document.getElementById("postResult");
+    const getResult = document.getElementById("getResult");
+    const rankingBody = document.getElementById("rankingBody");
+
+    function setStatus(el, message, type = "") {
+      el.textContent = message;
+      el.className = "status" + (type ? " " + type : "");
+    }
+
+    function pretty(data) {
+      return JSON.stringify(data, null, 2);
+    }
+
+    function getPayload() {
+      return {
+        name: document.getElementById("name").value.trim(),
+        score: Number(document.getElementById("score").value),
+        time: Number(document.getElementById("time").value)
+      };
+    }
+
+    function validatePayload(payload) {
+      if (!payload.name) {
+        return "name を入力してください。";
+      }
+
+      if (payload.name.length > 20) {
+        return "name は20文字以内にしてください。";
+      }
+
+      if (/[\x00-\x1F\x7F]/.test(payload.name)) {
+        return "name に制御文字は使用できません。";
+      }
+
+      if (/^[=+\-@]/.test(payload.name)) {
+        return "name の先頭に = + - @ は使用できません。";
+      }
+
+      if (!Number.isFinite(payload.score) || payload.score < 0 || payload.score > 1000000) {
+        return "score は 0〜1,000,000 の数値にしてください。";
+      }
+
+      if (!Number.isFinite(payload.time) || payload.time <= 0 || payload.time > 60) {
+        return "time は 0より大きく60以下の数値（ゲーム内の分）にしてください。";
+      }
+
+      return "";
+    }
+
+    postUrl.addEventListener("input", () => {
+      if (!getUrl.value) {
+        getUrl.value = postUrl.value;
+      }
+    });
+
+    document.getElementById("copyUrlButton").addEventListener("click", () => {
+      getUrl.value = postUrl.value;
+    });
+
+    document.getElementById("fillSampleButton").addEventListener("click", () => {
+      document.getElementById("name").value = "TEST";
+      document.getElementById("score").value = "1234";
+      document.getElementById("time").value = "30.5";
+      setStatus(postStatus, "サンプル値に戻しました。");
+    });
+
+    postForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const url = postUrl.value.trim();
+      const payload = getPayload();
+
+      if (!url) {
+        setStatus(postStatus, "WebアプリURLを入力してください。", "bad");
+        return;
+      }
+
+      const validationError = validatePayload(payload);
+      if (validationError) {
+        setStatus(postStatus, validationError, "bad");
+        postResult.textContent = pretty(payload);
+        return;
+      }
+
+      if (!getUrl.value) {
+        getUrl.value = url;
+      }
+
+      setStatus(postStatus, "送信中...");
+      postResult.textContent = "送信内容:\n" + pretty(payload);
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        const text = await response.text();
+        let data;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { raw: text };
+        }
+
+        postResult.textContent = pretty(data);
+
+        if (response.ok && data.success !== false) {
+          setStatus(postStatus, `HTTP ${response.status} - POST成功`, "good");
+        } else {
+          setStatus(postStatus, `HTTP ${response.status} - APIがエラーを返しました`, "bad");
+        }
+      } catch (error) {
+        setStatus(postStatus, "POST失敗: " + error.message, "bad");
+        postResult.textContent = String(error.stack || error);
+      }
+    });
+
+    document.getElementById("getButton").addEventListener("click", async () => {
+      const url = (getUrl.value || postUrl.value).trim();
+
+      if (!url) {
+        setStatus(getStatus, "WebアプリURLを入力してください。", "bad");
+        return;
+      }
+
+      getUrl.value = url;
+      setStatus(getStatus, "取得中...");
+      getResult.textContent = "";
+
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        let data;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("JSONとして読み取れませんでした: " + text.slice(0, 200));
+        }
+
+        getResult.textContent = pretty(data);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("GETレスポンスがランキング配列ではありません。");
+        }
+
+        renderRanking(data);
+        setStatus(getStatus, `HTTP ${response.status} - ${data.length}件取得`, "good");
+      } catch (error) {
+        setStatus(getStatus, "GET失敗: " + error.message, "bad");
+        rankingBody.innerHTML = '<tr><td colspan="4">ランキングを表示できませんでした。</td></tr>';
+      }
+    });
+
+    function renderRanking(data) {
+      if (data.length === 0) {
+        rankingBody.innerHTML = '<tr><td colspan="4">ランキングデータはありません。</td></tr>';
+        return;
+      }
+
+      rankingBody.innerHTML = "";
+
+      for (const item of data) {
+        const tr = document.createElement("tr");
+
+        const rank = document.createElement("td");
+        rank.textContent = item.rank ?? "-";
+
+        const name = document.createElement("td");
+        name.textContent = item.name ?? "";
+
+        const score = document.createElement("td");
+        score.textContent = item.score ?? "-";
+
+        const time = document.createElement("td");
+        const numericTime = Number(item.time);
+        time.textContent = Number.isFinite(numericTime)
+          ? numericTime + " 分"
+          : "-";
+
+        tr.append(rank, name, score, time);
+        rankingBody.appendChild(tr);
+      }
+    }
+  </script>
+</body>
+</html>
